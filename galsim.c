@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <omp.h>
 
 typedef struct _particle
 {
@@ -264,7 +265,7 @@ particleBox* buildTree(particle ** array, int N) {
 }
 
 int main(int argc, char* argv[]){  
-  if (argc != 7){
+  if (argc != 8){
       printf("Wrong number of input arguments\n");
       return 1;
   }  
@@ -274,14 +275,20 @@ int main(int argc, char* argv[]){
   double delta_t = atof(argv[4]);
   double theta_max = atof(argv[5]);
   int graphics = atoi(argv[6]);
-  printf("Command line arguments given: %d, %s, %d, %f, %f, %d \n", N, filename, n_steps, delta_t, theta_max, graphics);
+  int n_threads = atoi(argv[7]);
+  printf("Command line arguments given: %d, %s, %d, %f, %f, %d, %d \n", N, filename, n_steps, delta_t, theta_max, graphics, n_threads);
   const double G = 100.0 / N;
+
+  omp_set_num_threads(n_threads);
+
   particle **array = read_particle(N, filename);
   //printArray(array, N);
   particleBox *root = NULL;
   for(int i = 0; i<n_steps; i++) {
     root = buildTree(array, N);
     calcMass(root);
+
+    #pragma omp parallel for schedule(static)
     for(int j =0; j<N; j++){
       array[j]->Fx = 0;
       array[j]->Fy = 0;
@@ -292,6 +299,7 @@ int main(int argc, char* argv[]){
       array[j]->Fy *= -G;
     }
     deleteBoxes(root);
+    //#pragma omp parallel for schedule(static) num_threads(n_threads)
     for (int j = 0; j < N; j++) {
       array[j]->velX += delta_t*array[j]->Fx;
       array[j]->velY += delta_t*array[j]->Fy;
